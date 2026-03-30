@@ -28,6 +28,9 @@ int main(int argc, char **argv) {
     outfile = stdout;
 
     for (int i = 1; i < argc; i++) {
+        if (debugMode) {
+            fprintf(stderr, "%s\n", argv[i]);
+        }
         if (strcmp(argv[i], "-D") == 0) {
             debugMode = 0;
         } else if (argv[i][0] == '+' && argv[i][1] == 'D') {
@@ -40,9 +43,18 @@ int main(int argc, char **argv) {
         } else if (argv[i][0] == '-' && argv[i][1] == 'V') {
             key = (unsigned char *)argv[i] + 2;
             direction = -1;
-        }
-        if (debugMode) {
-            fprintf(stderr, "%s\n", argv[i]);
+        } else if (argv[i][0] == '-' && argv[i][1] == 'i') {
+            infile = fopen(argv[i] + 2, "r");
+            if (infile == NULL) {
+                fprintf(stderr, "Error: could not open input file %s\n", argv[i] + 2);
+                return 1;
+            }
+        } else if (argv[i][0] == '-' && argv[i][1] == 'o') {
+            outfile = fopen(argv[i] + 2, "w");
+            if (outfile == NULL) {
+                fprintf(stderr, "Error: could not open output file %s\n", argv[i] + 2);
+                return 1;
+            }
         }
     }
 
