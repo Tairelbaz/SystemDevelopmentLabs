@@ -37,7 +37,12 @@ int main(int argc, char *argv[]) {
 
     // Iterate over command line arguments
     for(int i = 1; i < argc; i++) {
-        // Apply debug toggles immediately.
+        // If debug mode is on, print the argument to stderr
+        if(debug) {
+            fprintf(stderr, "%s\n", argv[i]);
+        }
+
+        // Debug flag changes take effect starting from the next argument.
         if(strcmp(argv[i], "-D") == 0) {
             debug = 0;
             continue;
@@ -45,11 +50,6 @@ int main(int argc, char *argv[]) {
         if(strncmp(argv[i], "+D", 2) == 0 && strcmp(argv[i] + 2, password) == 0) {
             debug = 1;
             continue;
-        }
-
-        // If debug mode is on, print the argument to stderr
-        if(debug) {
-            fprintf(stderr, "%s\n", argv[i]);
         }
 
         if(strncmp(argv[i], "+V", 2) == 0) {
