@@ -1,0 +1,3 @@
+Welcome to Part 0, the input numbers are 3 and 4
+The sum is 7
+sum of 3 and 4 is: 7

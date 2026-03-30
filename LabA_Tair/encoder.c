@@ -36,18 +36,23 @@ int main(int argc, char *argv[]) {
     outfile = stdout;
 
     // Iterate over command line arguments
-    for(int i = 0; i < argc; i++) {
+    for(int i = 1; i < argc; i++) {
+        // Apply debug toggles immediately.
+        if(strcmp(argv[i], "-D") == 0) {
+            debug = 0;
+            continue;
+        }
+        if(strncmp(argv[i], "+D", 2) == 0 && strcmp(argv[i] + 2, password) == 0) {
+            debug = 1;
+            continue;
+        }
+
         // If debug mode is on, print the argument to stderr
         if(debug) {
             fprintf(stderr, "%s\n", argv[i]);
         }
 
-        // Check for debug flags to change mode for NEXT arguments
-        if(strcmp(argv[i], "-D") == 0) {
-            debug = 0;
-        } else if(strncmp(argv[i], "+D", 2) == 0 && strcmp(argv[i] + 2, password) == 0) {
-            debug = 1;
-        } else if(strncmp(argv[i], "+V", 2) == 0) {
+        if(strncmp(argv[i], "+V", 2) == 0) {
             encoding_key = argv[i] + 2;
             encoding_sign = 1;
             encoding_pos = 0;
@@ -55,6 +60,18 @@ int main(int argc, char *argv[]) {
             encoding_key = argv[i] + 2;
             encoding_sign = -1;
             encoding_pos = 0;
+        } else if(strncmp(argv[i], "-i", 2) == 0) {
+            infile = fopen(argv[i] + 2, "r");
+            if(infile == NULL) {
+                fprintf(stderr, "Error: failed opening input file %s\n", argv[i] + 2);
+                return 1;
+            }
+        } else if(strncmp(argv[i], "-o", 2) == 0) {
+            outfile = fopen(argv[i] + 2, "w");
+            if(outfile == NULL) {
+                fprintf(stderr, "Error: failed opening output file %s\n", argv[i] + 2);
+                return 1;
+            }
         }
     }
 
@@ -69,7 +86,13 @@ int main(int argc, char *argv[]) {
         fputc(c, outfile);
     }
 
-    fclose(outfile);
+    if(infile != stdin) {
+        fclose(infile);
+    }
+
+    if(outfile != stdout) {
+        fclose(outfile);
+    }
 
     return 0;
 }
