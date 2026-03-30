@@ -2,11 +2,22 @@
 #include <string.h>
 
 unsigned char password[] = "my_password1";
+unsigned char *key = (unsigned char *)"A";
+int direction = 1;
+int keyPos = 0;
 
 FILE *infile;
 FILE *outfile;
 
 int encode(int c) {
+    int shift = key[keyPos] - 'A';
+    if (c >= 'A' && c <= 'Z') {
+        c = 'A' + (c - 'A' + direction * shift + 26) % 26;
+        keyPos = key[keyPos + 1] ? keyPos + 1 : 0;
+    } else if (c >= 'a' && c <= 'z') {
+        c = 'a' + (c - 'a' + direction * shift + 26) % 26;
+        keyPos = key[keyPos + 1] ? keyPos + 1 : 0;
+    }
     return c;
 }
 
@@ -23,6 +34,12 @@ int main(int argc, char **argv) {
             if (strcmp(argv[i] + 2, (char *)password) == 0) {
                 debugMode = 1;
             }
+        } else if (argv[i][0] == '+' && argv[i][1] == 'V') {
+            key = (unsigned char *)argv[i] + 2;
+            direction = 1;
+        } else if (argv[i][0] == '-' && argv[i][1] == 'V') {
+            key = (unsigned char *)argv[i] + 2;
+            direction = -1;
         }
         if (debugMode) {
             fprintf(stderr, "%s\n", argv[i]);
