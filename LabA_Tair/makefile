@@ -1,4 +1,4 @@
-all: task0 my_echo
+all: encoder
 
 task0: main.o numbers.o add.o
 	gcc -m32 -g -Wall -o task0 main.o numbers.o add.o
