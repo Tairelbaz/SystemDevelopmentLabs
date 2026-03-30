@@ -37,22 +37,16 @@ int main(int argc, char *argv[]) {
 
     // Iterate over command line arguments
     for(int i = 1; i < argc; i++) {
-        // Apply debug toggles immediately.
-        if(strcmp(argv[i], "-D") == 0) {
-            debug = 0;
-            continue;
-        }
-        if(strncmp(argv[i], "+D", 2) == 0 && strcmp(argv[i] + 2, password) == 0) {
-            debug = 1;
-            continue;
-        }
-
         // If debug mode is on, print the argument to stderr
         if(debug) {
             fprintf(stderr, "%s\n", argv[i]);
         }
 
-        if(strncmp(argv[i], "+V", 2) == 0) {
+        if(strcmp(argv[i], "-D") == 0) {
+            debug = 0;
+        } else if(strncmp(argv[i], "+D", 2) == 0 && strcmp(argv[i] + 2, password) == 0) {
+            debug = 1;
+        } else if(strncmp(argv[i], "+V", 2) == 0) {
             encoding_key = argv[i] + 2;
             encoding_sign = 1;
             encoding_pos = 0;
