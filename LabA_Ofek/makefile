@@ -6,7 +6,7 @@ main: main.o numbers.o add.o
 my_echo: my_echo.o
 	gcc -m32 -g -Wall -o my_echo my_echo.o
 encoder: encoder.o
-	gcc -m32 -g -Wall -o encoder my_echo.o
+	gcc -m32 -g -Wall -o encoder encoder.o
 # Depends on the source and header files
 main.o: main.c
 	gcc -g -Wall -m32 -c -o main.o main.c

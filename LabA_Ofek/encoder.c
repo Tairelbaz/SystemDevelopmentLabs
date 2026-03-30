@@ -1,31 +1,38 @@
 #include <stdio.h>
+#include <string.h>
 
 unsigned char password[] = "my_password1";
-unsigned char debugModeFlagOff[] = "-D";
-unsigned char debugModeFlagOn[] = "+Dpassword";
+
+FILE *infile;
+FILE *outfile;
+
+int encode(int c) {
+    return c;
+}
 
 int main(int argc, char **argv) {
     int debugMode = 1;
-    
-    for (int i = 1; i < argc; i++)
-    {
-        if(argv[i]==debugModeFlagOff){
+    int c;
+    infile = stdin;
+    outfile = stdout;
+
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-D") == 0) {
             debugMode = 0;
-            continue;
-        }
-        if(argv[i]==debugModeFlagOn){
-            if(len(argv) > i+1 && argv[i+1] == password){
-                i++;
+        } else if (argv[i][0] == '+' && argv[i][1] == 'D') {
+            if (strcmp(argv[i] + 2, (char *)password) == 0) {
                 debugMode = 1;
-                puts("Auth successful");
             }
-            puts("Auth unsuccessful");
-            continue;
         }
-        if(debugMode==1){
-            puts(argv[i]);
+        if (debugMode) {
+            fprintf(stderr, "%s\n", argv[i]);
         }
     }
-    printf("\n");
+
+    while ((c = fgetc(infile)) != EOF) {
+        fputc(encode(c), outfile);
+    }
+
+    fclose(outfile);
     return 0;
 }
