@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <malloc.h>
 
 /* return string "word" if the count is 1 or "words" otherwise */
 char *words(int count)

@@ -14,7 +14,7 @@ void foo1();
 char g = 'g';
 void foo2();
 
-int secondary(int x)
+void secondary(int x)
 {
     int addr2;
     int addr3;
@@ -44,10 +44,10 @@ int secondary(int x)
     printf("- &addr4: %p\n", &addr4);
 
     printf("- &foo1: %p\n", &foo1);
-    printf("- &foo1: %p\n", &foo2);
-    
+    printf("- &foo2: %p\n", &foo2);
+
     printf("Print another distance:\n");
-    printf("- &foo2 - &foo1: %ld\n", (long) (&foo2 - &foo1));
+    printf("- &foo2 - &foo1: %ld\n", (long)&foo2 - (long)&foo1);
 
    
     printf("Arrays Mem Layout (T1b):\n");
@@ -75,7 +75,7 @@ int secondary(int x)
     int *p;
     printf("- uninitialized p: %p\n", (void*)p);
 
-
+    free(addr4);
 }
 
 int main(int argc, char **argv)

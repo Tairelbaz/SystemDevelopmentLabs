@@ -27,7 +27,8 @@
       "Bash(printf 'xyz\\\\n')",
       "Bash(./encoder +VB)",
       "Bash(./encoder -i/tmp/nonexistent_file)",
-      "Bash(echo \"exit code: $?\")"
+      "Bash(echo \"exit code: $?\")",
+      "Skill(package)"
     ]
   },
   "model": "claude-opus-4-6[1m]",
