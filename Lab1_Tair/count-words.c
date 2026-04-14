@@ -5,6 +5,7 @@
 #include <malloc.h>
 
 /* return string "word" if the count is 1 or "words" otherwise */
+//code from moodle
 const char *words(int count)
 {
   if (count == 1)

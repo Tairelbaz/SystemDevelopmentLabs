@@ -8,7 +8,7 @@ char encrypt(char c);
 char decrypt(char c);
 char dprt(char c);
  
-char* map(char *array, int array_length, char (*f) (char)){
+char* map(char *array, int array_length, char (*f) (char)){ //code from moodle
   char* mapped_array = (char*)(malloc(array_length*sizeof(char)));
   int i;
 

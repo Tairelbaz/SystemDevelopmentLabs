@@ -7,8 +7,7 @@ struct fun_desc {
   char (*fun)(char);
 };
 
-char* map(char *array, int array_length, char (*f)(char))
-{
+char* map(char *array, int array_length, char (*f)(char)) { //code from moodle
   int i;
   char *mapped_array = (char*)malloc(array_length * sizeof(char));
 
