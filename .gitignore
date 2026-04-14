@@ -1,8 +1,13 @@
-# Object files
-*.o
+# Lab directories: auto-ignore extensionless binaries.
+# Linux executables have no extension; source/doc files always do.
+# Ignore everything inside Lab*/ that lacks a dot, whitelist the rest.
+Lab*/**
+!Lab*/**/
+!Lab*/**/*.*
+!Lab*/**/makefile
+!Lab*/**/Makefile
 
-# Executables
-main
-encoder
-my_echo
-task0
+# Build artifacts (placed AFTER the whitelist so they override it)
+*.o
+*.exe
+a.out
