@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -O0 -Wall -Wextra -std=c11
+CFLAGS = -m32 -g -O0 -Wall -Wextra -std=c11
 TARGET = menu_map
 
 all: $(TARGET)
