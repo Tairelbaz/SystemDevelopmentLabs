@@ -30,6 +30,6 @@
       "Bash(echo \"exit code: $?\")"
     ]
   },
-  "model": "claude-opus-4-6",
+  "model": "claude-opus-4-6[1m]",
   "alwaysThinkingEnabled": true
 }
