@@ -143,6 +143,30 @@ void list_free(link *virus_list) {
 	}
 }
 
+#define BUFFER_SIZE 10240
+
+void detect_virus(char *buffer, unsigned int size, link *virus_list) {
+	link *curr = virus_list;
+	unsigned int i;
+
+	while (curr != NULL) {
+		unsigned short sig_size = curr->vir->SigSize;
+		unsigned char *sig = curr->vir->Sig;
+		unsigned char name[17];
+		memcpy(name, curr->vir->VirusName, 16);
+		name[16] = '\0';
+
+		for (i = 0; i + sig_size <= size; i++) {
+			if (memcmp(buffer + i, sig, sig_size) == 0) {
+				printf("Starting byte: %u\n", i);
+				printf("Virus name: %s\n", name);
+				printf("Signature size: %u\n\n", sig_size);
+			}
+		}
+		curr = curr->nextVirus;
+	}
+}
+
 static link* load_signatures(const char *filename) {
 	FILE* signatures;
 	unsigned char magic[4];
@@ -240,7 +264,19 @@ int main(int argc, char** argv) {
 
 			case 'D':
 			case 'd':
-				printf("Not implemented\n");
+				if (selected_file[0] == '\0') {
+					fprintf(stderr, "Error: no file selected\n");
+				} else {
+					FILE *f = fopen(selected_file, "rb");
+					if (f == NULL) {
+						fprintf(stderr, "Error: cannot open file %s\n", selected_file);
+					} else {
+						char buffer[BUFFER_SIZE];
+						unsigned int bytes_read = fread(buffer, 1, BUFFER_SIZE, f);
+						fclose(f);
+						detect_virus(buffer, bytes_read, virus_list);
+					}
+				}
 				break;
 
 			case 'F':
