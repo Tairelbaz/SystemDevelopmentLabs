@@ -43,6 +43,7 @@ virus* readVirus(FILE* input) {
 	if (v == NULL) {
 		return NULL;
 	}
+	memset(v, 0, sizeof(virus));
 
 	if (g_is_big_endian) {
 		v->SigSize = ((unsigned short)size_bytes[0] << 8) | size_bytes[1];
@@ -88,7 +89,7 @@ void printVirus(virus* v, FILE* output) {
 
 	fprintf(output, "Virus name: %s\n", name);
 	fprintf(output, "Virus size: %u\n", v->SigSize);
-	fprintf(output, "Signature:\n");
+	fprintf(output, "signature:\n");
 
 	for (i = 0; i < v->SigSize; i++) {
 		fprintf(output, "%02X ", v->Sig[i]);
