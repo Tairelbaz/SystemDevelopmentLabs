@@ -1,6 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void PrintHex(char *buffer, long length) {
+    for (long i = 0; i < length; i++) {
+        printf("%02X ", (unsigned char)buffer[i]);
+    }
+    printf("\n");
+}
+
 int main(int argc, char **argv)
 {
     if(argc != 2){
