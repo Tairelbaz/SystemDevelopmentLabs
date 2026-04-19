@@ -8,6 +8,13 @@ typedef struct virus {
 	unsigned char* Sig;
 } virus;
 
+typedef struct link link;
+
+struct link {
+	link *nextVirus;
+	virus *vir;
+};
+
 static int g_is_big_endian = 0;
 
 static void freeVirus(virus* v) {
@@ -89,26 +96,68 @@ void printVirus(virus* v, FILE* output) {
 	fprintf(output, "\n\n");
 }
 
-int main(int argc, char** argv) {
+void list_print(link *virus_list, FILE* output) {
+	link *curr = virus_list;
+
+	while (curr != NULL) {
+		printVirus(curr->vir, output);
+		curr = curr->nextVirus;
+	}
+}
+
+link* list_append(link* virus_list, virus* data) {
+	link *new_link;
+	link *curr;
+
+	new_link = (link*)malloc(sizeof(link));
+	if (new_link == NULL) {
+		return virus_list;
+	}
+
+	new_link->vir = data;
+	new_link->nextVirus = NULL;
+
+	if (virus_list == NULL) {
+		return new_link;
+	}
+
+	curr = virus_list;
+	while (curr->nextVirus != NULL) {
+		curr = curr->nextVirus;
+	}
+	curr->nextVirus = new_link;
+
+	return virus_list;
+}
+
+void list_free(link *virus_list) {
+	link *curr = virus_list;
+	link *next;
+
+	while (curr != NULL) {
+		next = curr->nextVirus;
+		freeVirus(curr->vir);
+		free(curr);
+		curr = next;
+	}
+}
+
+static link* load_signatures(const char *filename) {
 	FILE* signatures;
 	unsigned char magic[4];
 	virus* v;
+	link* virus_list = NULL;
 
-	if (argc != 2) {
-		fprintf(stderr, "Usage: %s <signatures_file>\n", argv[0]);
-		return 1;
-	}
-
-	signatures = fopen(argv[1], "rb");
+	signatures = fopen(filename, "rb");
 	if (signatures == NULL) {
 		fprintf(stderr, "Error: cannot open signatures file\n");
-		return 1;
+		return NULL;
 	}
 
 	if (fread(magic, 1, 4, signatures) < 4) {
 		fprintf(stderr, "Error: cannot read magic number\n");
 		fclose(signatures);
-		return 1;
+		return NULL;
 	}
 
 	if (memcmp(magic, "VIRL", 4) == 0) {
@@ -118,14 +167,97 @@ int main(int argc, char** argv) {
 	} else {
 		fprintf(stderr, "Error: invalid signatures file format\n");
 		fclose(signatures);
-		return 1;
+		return NULL;
 	}
 
 	while ((v = readVirus(signatures)) != NULL) {
-		printVirus(v, stdout);
-		freeVirus(v);
+		virus_list = list_append(virus_list, v);
 	}
 
 	fclose(signatures);
+	return virus_list;
+}
+
+int main(int argc, char** argv) {
+	link* virus_list = NULL;
+	char line[256];
+	char selected_file[256] = "";
+	char filename[256];
+	char option;
+
+	(void)argc;
+	(void)argv;
+
+	while (1) {
+		printf("\n<L>oad signatures\n");
+		printf("<P>rint signatures\n");
+		printf("<S>elect file to inspect\n");
+		printf("<D>etect viruses\n");
+		printf("<F>ix file\n");
+		printf("<Q>uit\n");
+		printf("Option: ");
+
+		if (fgets(line, sizeof(line), stdin) == NULL) {
+			break;
+		}
+
+		if (sscanf(line, " %c", &option) != 1) {
+			continue;
+		}
+
+		switch (option) {
+			case 'L':
+			case 'l':
+				printf("Enter signatures file name: ");
+				if (fgets(line, sizeof(line), stdin) == NULL) {
+					break;
+				}
+				if (sscanf(line, "%255s", filename) == 1) {
+					link* new_list = load_signatures(filename);
+					if (new_list != NULL) {
+						list_free(virus_list);
+						virus_list = new_list;
+					}
+				}
+				break;
+
+			case 'P':
+			case 'p':
+				list_print(virus_list, stdout);
+				break;
+
+			case 'S':
+			case 's':
+				printf("Enter file name to inspect: ");
+				if (fgets(line, sizeof(line), stdin) == NULL) {
+					break;
+				}
+				if (sscanf(line, "%255s", selected_file) == 1) {
+					printf("Selected file: %s\n", selected_file);
+				}
+				break;
+
+			case 'D':
+			case 'd':
+				printf("Not implemented\n");
+				break;
+
+			case 'F':
+			case 'f':
+				printf("Not implemented\n");
+				break;
+
+			case 'Q':
+			case 'q':
+				list_free(virus_list);
+				return 0;
+
+			default:
+				printf("Unknown option\n");
+				break;
+		}
+	}
+
+	list_free(virus_list);
 	return 0;
 }
