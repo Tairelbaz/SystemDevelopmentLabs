@@ -7,6 +7,9 @@ Lab*/**
 !Lab*/**/makefile
 !Lab*/**/Makefile
 
+# LabB needs extensionless files (data files, patch targets, etc.)
+!LabB*/**
+
 # Build artifacts (placed AFTER the whitelist so they override it)
 *.o
 *.exe
