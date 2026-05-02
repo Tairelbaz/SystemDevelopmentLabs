@@ -167,6 +167,18 @@ void detect_virus(char *buffer, unsigned int size, link *virus_list) {
 	}
 }
 
+void neutralize_virus(char *fileName, int signatureOffset) {
+	unsigned char ret = 0xC3;
+	FILE *f = fopen(fileName, "r+b");
+	if (f == NULL) {
+		fprintf(stderr, "Error: cannot open file %s for writing\n", fileName);
+		return;
+	}
+	fseek(f, signatureOffset, SEEK_SET);
+	fwrite(&ret, 1, 1, f);
+	fclose(f);
+}
+
 static link* load_signatures(const char *filename) {
 	FILE* signatures;
 	unsigned char magic[4];
@@ -281,7 +293,31 @@ int main(int argc, char** argv) {
 
 			case 'F':
 			case 'f':
-				printf("Not implemented\n");
+				if (selected_file[0] == '\0') {
+					fprintf(stderr, "Error: no file selected\n");
+				} else {
+					FILE *f = fopen(selected_file, "rb");
+					if (f == NULL) {
+						fprintf(stderr, "Error: cannot open file %s\n", selected_file);
+					} else {
+						char buffer[BUFFER_SIZE];
+						unsigned int bytes_read = fread(buffer, 1, BUFFER_SIZE, f);
+						fclose(f);
+						link *curr = virus_list;
+						while (curr != NULL) {
+							unsigned short sig_size = curr->vir->SigSize;
+							unsigned char *sig = curr->vir->Sig;
+							unsigned int i;
+							for (i = 0; i + sig_size <= bytes_read; i++) {
+								if (memcmp(buffer + i, sig, sig_size) == 0) {
+									printf("Neutralizing virus at byte %u\n", i);
+									neutralize_virus(selected_file, i);
+								}
+							}
+							curr = curr->nextVirus;
+						}
+					}
+				}
 				break;
 
 			case 'Q':
