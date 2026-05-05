@@ -6,15 +6,14 @@
 
 void handler(int sig)
 {
-	printf("\nRecieved Signal : %s\n", strsignal(sig));
+	printf("\nReceived Signal : %s\n", strsignal(sig));
+	fflush(stdout);
+
 	if (sig == SIGTSTP)
-	{
-		signal(SIGTSTP, SIG_DFL);
-	}
+		signal(SIGCONT, handler);
 	else if (sig == SIGCONT)
-	{
-		signal(SIGCONT, SIG_DFL);
-	}
+		signal(SIGTSTP, handler);
+
 	signal(sig, SIG_DFL);
 	raise(sig);
 }
