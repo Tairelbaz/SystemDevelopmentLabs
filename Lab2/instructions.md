@@ -27,7 +27,7 @@ Starting and maintaining a process involves many technicalities, and like any ot
 
 lab 2 tasks
 First, download LineParser.c and LineParser.h. These files contain some useful parsing and string management functions that will simplify your code substantially. Make sure you appropriately refer to LineParser.c in your makefile. You can find a detailed explanation in the reading material for lab 2.
-Throughout the lab pay close attention to the difference between processes(things that you run with execvp() after fork()) and shell commands. Think about when do you need a new process and when to perform the desired actions unternally within the shell process. Running things in a different process preserves inter-activeness with the shell. However, not all things can be run in a new process.
+Throughout the lab pay close attention to the difference between processes(things that you run with execvp() after fork()) and shell commands. Think about when do you need a new process and when to perform the desired actions internally within the shell process. Running things in a different process preserves inter-activeness with the shell. However, not all things can be run in a new process.
 Task 0a
 Here you are required to write a basic shell program myshell. Keep in mind that you are expected to extend this basic shell during the next tasks. In your code write an infinite loop and carry out the following:
 
