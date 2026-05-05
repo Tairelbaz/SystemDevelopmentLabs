@@ -3,6 +3,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <linux/limits.h>
 #include "LineParser.h"
@@ -64,6 +65,34 @@ int main(int argc, char **argv) {
         if (strcmp(parsedLine->arguments[0], "cd") == 0) {
             if (chdir(parsedLine->arguments[1]) == -1)
                 fprintf(stderr, "cd failed: %s\n", strerror(errno));
+            freeCmdLines(parsedLine);
+            continue;
+        }
+
+        if (strcmp(parsedLine->arguments[0], "stop") == 0) {
+            if (kill(atoi(parsedLine->arguments[1]), SIGSTOP) == -1)
+                perror("stop failed");
+            freeCmdLines(parsedLine);
+            continue;
+        }
+
+        if (strcmp(parsedLine->arguments[0], "wakeup") == 0) {
+            if (kill(atoi(parsedLine->arguments[1]), SIGCONT) == -1)
+                perror("wakeup failed");
+            freeCmdLines(parsedLine);
+            continue;
+        }
+
+        if (strcmp(parsedLine->arguments[0], "ice") == 0) {
+            if (kill(atoi(parsedLine->arguments[1]), SIGINT) == -1)
+                perror("ice failed");
+            freeCmdLines(parsedLine);
+            continue;
+        }
+
+        if (strcmp(parsedLine->arguments[0], "nuke") == 0) {
+            if (kill(-atoi(parsedLine->arguments[1]), SIGKILL) == -1)
+                perror("nuke failed");
             freeCmdLines(parsedLine);
             continue;
         }
