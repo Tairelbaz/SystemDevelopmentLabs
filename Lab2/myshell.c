@@ -78,35 +78,45 @@ int main(int argc, char **argv) {
         }
 
         if (strcmp(parsedLine->arguments[0], "cd") == 0) {
-            if (chdir(parsedLine->arguments[1]) == -1)
+            if (parsedLine->argCount < 2)
+                fprintf(stderr, "cd: missing argument\n");
+            else if (chdir(parsedLine->arguments[1]) == -1)
                 fprintf(stderr, "cd failed: %s\n", strerror(errno));
             freeCmdLines(parsedLine);
             continue;
         }
 
         if (strcmp(parsedLine->arguments[0], "stop") == 0) {
-            if (kill(atoi(parsedLine->arguments[1]), SIGSTOP) == -1)
+            if (parsedLine->argCount < 2)
+                fprintf(stderr, "stop: missing process id\n");
+            else if (kill(atoi(parsedLine->arguments[1]), SIGSTOP) == -1)
                 perror("stop failed");
             freeCmdLines(parsedLine);
             continue;
         }
 
         if (strcmp(parsedLine->arguments[0], "wakeup") == 0) {
-            if (kill(atoi(parsedLine->arguments[1]), SIGCONT) == -1)
+            if (parsedLine->argCount < 2)
+                fprintf(stderr, "wakeup: missing process id\n");
+            else if (kill(atoi(parsedLine->arguments[1]), SIGCONT) == -1)
                 perror("wakeup failed");
             freeCmdLines(parsedLine);
             continue;
         }
 
         if (strcmp(parsedLine->arguments[0], "ice") == 0) {
-            if (kill(atoi(parsedLine->arguments[1]), SIGINT) == -1)
+            if (parsedLine->argCount < 2)
+                fprintf(stderr, "ice: missing process id\n");
+            else if (kill(atoi(parsedLine->arguments[1]), SIGINT) == -1)
                 perror("ice failed");
             freeCmdLines(parsedLine);
             continue;
         }
 
         if (strcmp(parsedLine->arguments[0], "nuke") == 0) {
-            if (kill(-atoi(parsedLine->arguments[1]), SIGKILL) == -1)
+            if (parsedLine->argCount < 2)
+                fprintf(stderr, "nuke: missing process id\n");
+            else if (kill(-atoi(parsedLine->arguments[1]), SIGKILL) == -1)
                 perror("nuke failed");
             freeCmdLines(parsedLine);
             continue;
