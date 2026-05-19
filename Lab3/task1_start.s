@@ -2,6 +2,8 @@ section .data
     newline db 10
     Infile  dd 0
     Outfile dd 1
+    err_open db "Error: cannot open file", 10
+    err_open_len equ $ - err_open
 
 section .bss
     buf resb 1
@@ -111,6 +113,8 @@ main:
     mov eax, 5
     mov ecx, 0
     int 0x80
+    cmp eax, 0
+    jl .error_open
     mov [Infile], eax
     pop ebx
     jmp .next
@@ -122,9 +126,21 @@ main:
     mov ecx, 577
     mov edx, 420
     int 0x80
+    cmp eax, 0
+    jl .error_open
     mov [Outfile], eax
     pop ebx
     jmp .next
+
+.error_open:
+    mov eax, 4
+    mov ebx, 2
+    mov ecx, err_open
+    mov edx, err_open_len
+    int 0x80
+    mov eax, 1
+    mov ebx, 1
+    int 0x80
 
 .next:
     inc ebx

