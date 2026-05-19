@@ -44,12 +44,15 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 _FONT_DIR = '/usr/share/fonts/truetype/dejavu'
 
-_COLOR_BG_CODE = HexColor('#f5f5f5')
-_COLOR_BORDER_CODE = HexColor('#e0e0e0')
-_COLOR_LINK = HexColor('#1a5276')
-_COLOR_H1 = HexColor('#1a1a2e')
-_COLOR_H2 = HexColor('#2c3e50')
-_COLOR_H3 = HexColor('#34495e')
+_COLOR_BG_CODE = HexColor('#f8f9fa')
+_COLOR_BORDER_CODE = HexColor('#d1d5db')
+_COLOR_LINK = HexColor('#2563eb')
+_COLOR_H1 = HexColor('#111827')
+_COLOR_H2 = HexColor('#1e3a5f')
+_COLOR_H3 = HexColor('#374151')
+_COLOR_ACCENT = HexColor('#2563eb')
+_COLOR_TABLE_HEADER_BG = HexColor('#f1f5f9')
+_COLOR_TABLE_BORDER = HexColor('#cbd5e1')
 
 _RTL_RE = re.compile(r'[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]')
 
@@ -109,7 +112,7 @@ def _bidi_reshape(text: str) -> str:
 
 def _build_styles(base_size: int = 11, is_rtl: bool = False):
     """Create a style dictionary for the PDF."""
-    alignment = TA_RIGHT if is_rtl else TA_LEFT
+    alignment = TA_RIGHT if is_rtl else TA_JUSTIFY
     font = 'DejaVu'
     mono = 'DejaVuMono'
 
@@ -119,24 +122,32 @@ def _build_styles(base_size: int = 11, is_rtl: bool = False):
         'body',
         fontName=font,
         fontSize=base_size,
-        leading=base_size * 1.45,
+        leading=base_size * 1.6,
         alignment=alignment,
-        spaceAfter=4 * mm,
-        wordWrap='CJK',  # helps with long lines
+        spaceAfter=3.5 * mm,
+        wordWrap='CJK',
+        textColor=HexColor('#1f2937'),
     )
 
+    heading_configs = [
+        (base_size + 13, _COLOR_H1, 14 * mm, 5 * mm),
+        (base_size + 8,  _COLOR_H2, 10 * mm, 4 * mm),
+        (base_size + 5,  _COLOR_H3, 8 * mm,  3.5 * mm),
+        (base_size + 3,  HexColor('#4b5563'), 6 * mm, 3 * mm),
+        (base_size + 1,  HexColor('#4b5563'), 5 * mm, 2.5 * mm),
+        (base_size,      HexColor('#6b7280'), 4 * mm, 2 * mm),
+    ]
     for level in range(1, 7):
-        size = base_size + max(12 - level * 2, 0)
-        color = [_COLOR_H1, _COLOR_H2, _COLOR_H3, black, black, black][level - 1]
+        size, color, sb, sa = heading_configs[level - 1]
         styles[f'h{level}'] = ParagraphStyle(
             f'h{level}',
             fontName=f'{font}-Bold',
             fontSize=size,
-            leading=size * 1.3,
-            spaceBefore=(8 - level) * mm,
-            spaceAfter=3 * mm,
+            leading=size * 1.35,
+            spaceBefore=sb,
+            spaceAfter=sa,
             textColor=color,
-            alignment=alignment,
+            alignment=TA_RIGHT if is_rtl else TA_LEFT,
         )
 
     styles['code_inline'] = ParagraphStyle(
@@ -144,53 +155,61 @@ def _build_styles(base_size: int = 11, is_rtl: bool = False):
         fontName=mono,
         fontSize=base_size - 1,
         leading=(base_size - 1) * 1.4,
-        alignment=TA_LEFT,  # code is always LTR
+        alignment=TA_LEFT,
     )
 
     styles['code_block'] = ParagraphStyle(
         'code_block',
         fontName=mono,
         fontSize=base_size - 1.5,
-        leading=(base_size - 1.5) * 1.35,
-        leftIndent=8 * mm,
-        rightIndent=8 * mm,
-        spaceBefore=3 * mm,
-        spaceAfter=3 * mm,
+        leading=(base_size - 1.5) * 1.5,
+        leftIndent=6 * mm,
+        rightIndent=6 * mm,
+        spaceBefore=4 * mm,
+        spaceAfter=4 * mm,
         alignment=TA_LEFT,
         backColor=_COLOR_BG_CODE,
         borderColor=_COLOR_BORDER_CODE,
-        borderWidth=0.5,
-        borderPadding=6,
+        borderWidth=0.6,
+        borderPadding=8,
+        borderRadius=2,
+        textColor=HexColor('#1e293b'),
     )
 
     styles['list_item'] = ParagraphStyle(
         'list_item',
         parent=styles['body'],
-        spaceAfter=1.5 * mm,
+        spaceAfter=2 * mm,
+        leading=base_size * 1.55,
     )
 
     styles['blockquote'] = ParagraphStyle(
         'blockquote',
         parent=styles['body'],
         leftIndent=12 * mm,
-        textColor=HexColor('#555555'),
+        textColor=HexColor('#64748b'),
         fontName=f'{font}-Italic',
+        borderColor=_COLOR_ACCENT,
+        borderWidth=0,
+        borderPadding=4,
     )
 
     styles['table_header'] = ParagraphStyle(
         'table_header',
         fontName=f'{font}-Bold',
-        fontSize=base_size - 1,
-        leading=(base_size - 1) * 1.3,
-        alignment=alignment,
+        fontSize=base_size - 0.5,
+        leading=(base_size - 0.5) * 1.4,
+        alignment=TA_RIGHT if is_rtl else TA_LEFT,
+        textColor=HexColor('#1e293b'),
     )
 
     styles['table_cell'] = ParagraphStyle(
         'table_cell',
         fontName=font,
-        fontSize=base_size - 1,
-        leading=(base_size - 1) * 1.3,
-        alignment=alignment,
+        fontSize=base_size - 0.5,
+        leading=(base_size - 0.5) * 1.4,
+        alignment=TA_RIGHT if is_rtl else TA_LEFT,
+        textColor=HexColor('#374151'),
     )
 
     return styles
@@ -224,7 +243,7 @@ def _inline_to_markup(tokens, use_bidi: bool = False) -> str:
         elif ttype == 'codespan':
             raw = tok.get('raw', tok.get('text', ''))
             t = _escape_xml(raw)
-            parts.append(f'<font face="DejaVuMono" size="-1">{t}</font>')
+            parts.append(f'<font face="DejaVuMono" size="-1" color="#c7254e" backColor="#f9f2f4">{t}</font>')
 
         elif ttype == 'strong':
             inner = _inline_to_markup(tok.get('children', []), use_bidi)
@@ -380,14 +399,16 @@ def _ast_to_flowables(ast_nodes, styles, use_bidi: bool = False, page_width: flo
                 try:
                     t = Table(all_rows, colWidths=col_widths, repeatRows=1)
                     t.setStyle(TableStyle([
-                        ('BACKGROUND', (0, 0), (-1, 0), HexColor('#e8e8e8')),
+                        ('BACKGROUND', (0, 0), (-1, 0), _COLOR_TABLE_HEADER_BG),
                         ('FONTNAME', (0, 0), (-1, 0), 'DejaVu-Bold'),
-                        ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#cccccc')),
+                        ('LINEBELOW', (0, 0), (-1, 0), 1.2, _COLOR_ACCENT),
+                        ('GRID', (0, 0), (-1, -1), 0.4, _COLOR_TABLE_BORDER),
                         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                        ('TOPPADDING', (0, 0), (-1, -1), 4),
-                        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-                        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                        ('TOPPADDING', (0, 0), (-1, -1), 5),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#fafbfc')]),
                     ]))
                     flowables.append(Spacer(1, 3 * mm))
                     flowables.append(t)
@@ -430,12 +451,23 @@ def _ast_to_flowables(ast_nodes, styles, use_bidi: bool = False, page_width: flo
 # ---------------------------------------------------------------------------
 
 def _add_page_number(canvas, doc):
-    """Draw page number centered at the bottom of each page."""
+    """Draw page number and subtle decorative lines."""
     canvas.saveState()
-    canvas.setFont('DejaVu', 9)
+    page_w, page_h = doc.pagesize
     page_num = canvas.getPageNumber()
-    text = f"— {page_num} —"
-    canvas.drawCentredString(doc.pagesize[0] / 2.0, 15 * mm, text)
+
+    # Thin accent line at top of page
+    canvas.setStrokeColor(HexColor('#e2e8f0'))
+    canvas.setLineWidth(0.5)
+    canvas.line(20 * mm, page_h - 15 * mm, page_w - 20 * mm, page_h - 15 * mm)
+
+    # Footer line
+    canvas.line(20 * mm, 20 * mm, page_w - 20 * mm, 20 * mm)
+
+    # Page number
+    canvas.setFont('DejaVu', 8.5)
+    canvas.setFillColor(HexColor('#94a3b8'))
+    canvas.drawCentredString(page_w / 2.0, 13 * mm, str(page_num))
     canvas.restoreState()
 
 
@@ -478,15 +510,15 @@ def convert_md_to_pdf(
     doc = SimpleDocTemplate(
         str(pdf_path),
         pagesize=page_size,
-        leftMargin=20 * mm,
-        rightMargin=20 * mm,
-        topMargin=20 * mm,
-        bottomMargin=25 * mm,
+        leftMargin=22 * mm,
+        rightMargin=22 * mm,
+        topMargin=22 * mm,
+        bottomMargin=28 * mm,
         title=title or md_path.stem,
         author='md-to-pdf converter',
     )
 
-    content_width = page_w - 40 * mm
+    content_width = page_w - 44 * mm
 
     # Build styles
     styles = _build_styles(base_font_size, is_rtl)
