@@ -9,23 +9,61 @@ section .bss
     keypos resd 1
 
 section .text
+    global _start
+    global system_call
     global main
     extern strlen
+
+_start:
+    pop    dword ecx
+    mov    esi,esp
+    mov     eax,ecx
+    shl     eax,2
+    add     eax,esi
+    add     eax,4
+    push    dword eax
+    push    dword esi
+    push    dword ecx
+
+    call    main
+
+    mov     ebx,eax
+    mov     eax,1
+    int     0x80
+    nop
+
+system_call:
+    push    ebp
+    mov     ebp, esp
+    sub     esp, 4
+    pushad
+
+    mov     eax, [ebp+8]
+    mov     ebx, [ebp+12]
+    mov     ecx, [ebp+16]
+    mov     edx, [ebp+20]
+    int     0x80
+    mov     [ebp-4], eax
+    popad
+    mov     eax, [ebp-4]
+    add     esp, 4
+    pop     ebp
+    ret
 
 main:
     push ebp
     mov ebp, esp
 
-    mov edi, [ebp+8]         ; edi = argc
-    mov esi, [ebp+12]        ; esi = argv
+    mov edi, [ebp+8]
+    mov esi, [ebp+12]
 
-    xor ebx, ebx             ; ebx = 0 (i = 0)
+    xor ebx, ebx
 
 .loop:
     cmp ebx, edi
     jge .encode_loop
 
-    mov ecx, [esi + ebx*4]   ; ecx = argv[i]
+    mov ecx, [esi + ebx*4]
 
     push ebx
     push ecx
@@ -37,7 +75,7 @@ main:
 
     pop ecx
     mov eax, 4
-    mov ebx, 2                ; stderr
+    mov ebx, 2
     int 0x80
 
     mov eax, 4
@@ -46,26 +84,54 @@ main:
     mov edx, 1
     int 0x80
 
-    ; restore ecx = argv[i] for flag check
-    mov ecx, [esp]            ; peek at saved ecx (now under ebx on stack)
-    ; actually we need to get argv[i] again
-    pop ebx                   ; restore loop counter
-    mov ecx, [esi + ebx*4]   ; reload argv[i]
+    pop ebx
+    mov ecx, [esi + ebx*4]
 
     cmp byte [ecx], '+'
-    jne .next
+    jne .check_dash
     cmp byte [ecx+1], 'V'
     jne .next
     lea eax, [ecx+2]
     mov [key], eax
     mov [keypos], eax
+    jmp .next
+
+.check_dash:
+    cmp byte [ecx], '-'
+    jne .next
+    cmp byte [ecx+1], 'i'
+    je .open_input
+    cmp byte [ecx+1], 'o'
+    je .open_output
+    jmp .next
+
+.open_input:
+    push ebx
+    lea ebx, [ecx+2]
+    mov eax, 5
+    mov ecx, 0
+    int 0x80
+    mov [Infile], eax
+    pop ebx
+    jmp .next
+
+.open_output:
+    push ebx
+    lea ebx, [ecx+2]
+    mov eax, 5
+    mov ecx, 577
+    mov edx, 420
+    int 0x80
+    mov [Outfile], eax
+    pop ebx
+    jmp .next
 
 .next:
     inc ebx
     jmp .loop
 
 .encode_loop:
-    mov eax, 3                ; sys_read
+    mov eax, 3
     mov ebx, [Infile]
     mov ecx, buf
     mov edx, 1
@@ -76,7 +142,7 @@ main:
 
     call encode_char
 
-    mov eax, 4                ; sys_write
+    mov eax, 4
     mov ebx, [Outfile]
     mov ecx, buf
     mov edx, 1
