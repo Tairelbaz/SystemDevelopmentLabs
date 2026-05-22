@@ -13,24 +13,33 @@
 
 int debug = 0;
 
+void applyRedirections(cmdLine *pCmdLine) {
+    if (pCmdLine->inputRedirect) {
+        close(STDIN_FILENO);
+        if (open(pCmdLine->inputRedirect, O_RDONLY) == -1) {
+            perror("input redirection failed");
+            _exit(EXIT_FAILURE);
+        }
+    }
+    if (pCmdLine->outputRedirect) {
+        close(STDOUT_FILENO);
+        if (open(pCmdLine->outputRedirect, O_WRONLY | O_CREAT | O_TRUNC, 0644) == -1) {
+            perror("output redirection failed");
+            _exit(EXIT_FAILURE);
+        }
+    }
+}
+
 void execute(cmdLine *pCmdLine) {
     pid_t pid = fork();
 
+    if (pid == -1) {
+        perror("fork failed");
+        return;
+    }
+
     if (pid == 0) {
-        if (pCmdLine->inputRedirect) {
-            close(STDIN_FILENO);
-            if (open(pCmdLine->inputRedirect, O_RDONLY) == -1) {
-                perror("input redirection failed");
-                _exit(EXIT_FAILURE);
-            }
-        }
-        if (pCmdLine->outputRedirect) {
-            close(STDOUT_FILENO);
-            if (open(pCmdLine->outputRedirect, O_WRONLY | O_CREAT | O_TRUNC, 0644) == -1) {
-                perror("output redirection failed");
-                _exit(EXIT_FAILURE);
-            }
-        }
+        applyRedirections(pCmdLine);
         execvp(pCmdLine->arguments[0], pCmdLine->arguments);
         perror("execvp failed");
         _exit(EXIT_FAILURE);

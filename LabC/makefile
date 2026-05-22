@@ -19,4 +19,4 @@ mypipeline: mypipeline.c
 	$(CC) $(CFLAGS) -o mypipeline mypipeline.c
 
 clean:
-	rm -f *.o myshell looper mypipe
+	rm -f *.o myshell looper mypipeline
