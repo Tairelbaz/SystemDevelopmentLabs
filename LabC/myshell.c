@@ -30,6 +30,71 @@ void applyRedirections(cmdLine *pCmdLine) {
     }
 }
 
+void executePipeline(cmdLine *left, cmdLine *right) {
+    if (left->outputRedirect) {
+        fprintf(stderr, "Error: output redirection on left side of pipe\n");
+        return;
+    }
+    if (right->inputRedirect) {
+        fprintf(stderr, "Error: input redirection on right side of pipe\n");
+        return;
+    }
+
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        perror("pipe failed");
+        return;
+    }
+
+    pid_t pid1 = fork();
+    if (pid1 == -1) {
+        perror("fork failed");
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return;
+    }
+
+    if (pid1 == 0) {
+        close(pipefd[0]);
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+        applyRedirections(left);
+        execvp(left->arguments[0], left->arguments);
+        perror("execvp failed");
+        _exit(EXIT_FAILURE);
+    }
+
+    close(pipefd[1]);
+
+    pid_t pid2 = fork();
+    if (pid2 == -1) {
+        perror("fork failed");
+        close(pipefd[0]);
+        return;
+    }
+
+    if (pid2 == 0) {
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+        applyRedirections(right);
+        execvp(right->arguments[0], right->arguments);
+        perror("execvp failed");
+        _exit(EXIT_FAILURE);
+    }
+
+    close(pipefd[0]);
+
+    if (debug) {
+        fprintf(stderr, "PID: %d\nExecuting command: %s\n", pid1, left->arguments[0]);
+        fprintf(stderr, "PID: %d\nExecuting command: %s\n", pid2, right->arguments[0]);
+    }
+
+    if (right->blocking) {
+        waitpid(pid1, NULL, 0);
+        waitpid(pid2, NULL, 0);
+    }
+}
+
 void execute(cmdLine *pCmdLine) {
     pid_t pid = fork();
 
@@ -135,7 +200,10 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        execute(parsedLine);
+        if (parsedLine->next)
+            executePipeline(parsedLine, parsedLine->next);
+        else
+            execute(parsedLine);
         freeCmdLines(parsedLine);
     }
 
