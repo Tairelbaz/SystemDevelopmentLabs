@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #define FILE_NAME_LEN 128
 #define INPUT_LEN     256
@@ -20,6 +21,11 @@ char file_name[FILE_NAME_LEN] = "";   /* current target file */
 int  unit_size = 1;                   /* 1, 2 or 4 bytes; default 1 */
 unsigned char mem_buf[MEM_BUF_SIZE];  /* loaded file contents */
 size_t mem_count = 0;                 /* bytes currently in mem_buf */
+char display_mode = 0;                /* 0 = hexadecimal (default), 1 = decimal */
+
+/* Unit-sized printf formats, indexed by unit_size-1 (sizes 1,2,4 -> 0,1,3). */
+static char* hex_formats[] = {"%#hhx\n", "%#hx\n", "No such unit", "%#x\n"};
+static char* dec_formats[] = {"%#hhd\n", "%#hd\n", "No such unit", "%#d\n"};
 
 /* Read one line from stdin into buf (size bytes), stripping the trailing
  * newline. Returns buf, or NULL on EOF. */
@@ -71,26 +77,154 @@ void set_unit_size() {
   }
 }
 
-/* ---- Stubs to be implemented during Task 1 ---- */
-
+/* Task 1a: read length*unit_size bytes from file_name (at hex offset location)
+ * into mem_buf. The file is opened and closed within this function. */
 void load_into_memory() {
-  printf("Not implemented yet\n");
+  char input[INPUT_LEN];
+  unsigned int location;
+  int length;
+  FILE *f;
+  size_t r;
+
+  if (file_name[0] == '\0') {
+    fprintf(stderr, "Error: file name not set\n");
+    return;
+  }
+  f = fopen(file_name, "rb");
+  if (f == NULL) {
+    fprintf(stderr, "Error: cannot open '%s'\n", file_name);
+    return;
+  }
+  printf("Please enter <location> <length>\n");
+  if (read_line(input, sizeof(input)) == NULL) {
+    fclose(f);
+    return;
+  }
+  if (sscanf(input, "%x %d", &location, &length) != 2) {
+    fprintf(stderr, "Error: invalid input\n");
+    fclose(f);
+    return;
+  }
+  if (debug_mode)
+    fprintf(stderr, "Debug: file_name='%s', location=%#x, length=%d\n",
+            file_name, location, length);
+  if (length < 0 || (size_t)length * unit_size > MEM_BUF_SIZE) {
+    fprintf(stderr, "Error: length exceeds buffer capacity\n");
+    fclose(f);
+    return;
+  }
+  fseek(f, location, SEEK_SET);
+  r = fread(mem_buf, unit_size, length, f);
+  mem_count = r * unit_size;
+  fclose(f);
+  printf("Loaded %zu units into memory\n", r);
 }
 
+/* Task 1b: switch between hexadecimal (default) and decimal display. */
 void toggle_display_mode() {
-  printf("Not implemented yet\n");
+  if (display_mode) {
+    display_mode = 0;
+    printf("Decimal display flag now off, hexadecimal representation\n");
+  } else {
+    display_mode = 1;
+    printf("Decimal display flag now on, decimal representation\n");
+  }
 }
 
+/* Task 1c: display u units of unit_size starting at addr (0 = start of mem_buf,
+ * otherwise a virtual memory address), per the current display mode. */
 void memory_display() {
-  printf("Not implemented yet\n");
+  char input[INPUT_LEN];
+  unsigned int addr;
+  int u;
+  unsigned char *p;
+  char **formats;
+
+  printf("Enter address and length\n");
+  if (read_line(input, sizeof(input)) == NULL)
+    return;
+  if (sscanf(input, "%x %d", &addr, &u) != 2) {
+    fprintf(stderr, "Error: invalid input\n");
+    return;
+  }
+
+  p = (addr == 0) ? mem_buf : (unsigned char*)(uintptr_t)addr;
+  formats = display_mode ? dec_formats : hex_formats;
+
+  printf(display_mode ? "Decimal\n=======\n" : "Hexadecimal\n===========\n");
+  for (int i = 0; i < u; i++) {
+    unsigned int val = 0;
+    memcpy(&val, p + (size_t)i * unit_size, unit_size);
+    printf(formats[unit_size - 1], val);
+  }
 }
 
+/* Task 1d: write length units from memory (source 0 = mem_buf, otherwise a
+ * virtual address) to file_name at hex offset target. Opened "rb+" so the file
+ * is updated in place, never truncated; opened and closed within the function. */
 void save_into_file() {
-  printf("Not implemented yet\n");
+  char input[INPUT_LEN];
+  unsigned int source, target;
+  int length;
+  unsigned char *p;
+  FILE *f;
+  long size;
+
+  if (file_name[0] == '\0') {
+    fprintf(stderr, "Error: file name not set\n");
+    return;
+  }
+  f = fopen(file_name, "rb+");
+  if (f == NULL) {
+    fprintf(stderr, "Error: cannot open '%s'\n", file_name);
+    return;
+  }
+  printf("Please enter <source-address> <target-location> <length>\n");
+  if (read_line(input, sizeof(input)) == NULL) {
+    fclose(f);
+    return;
+  }
+  if (sscanf(input, "%x %x %d", &source, &target, &length) != 3) {
+    fprintf(stderr, "Error: invalid input\n");
+    fclose(f);
+    return;
+  }
+  if (debug_mode)
+    fprintf(stderr, "Debug: file_name='%s', source=%#x, target=%#x, length=%d\n",
+            file_name, source, target, length);
+
+  fseek(f, 0, SEEK_END);
+  size = ftell(f);
+  if ((long)target > size) {
+    fprintf(stderr, "Error: target location %#x exceeds file size\n", target);
+    fclose(f);
+    return;
+  }
+  p = (source == 0) ? mem_buf : (unsigned char*)(uintptr_t)source;
+  fseek(f, target, SEEK_SET);
+  fwrite(p, unit_size, length, f);
+  fclose(f);
 }
 
+/* Task 1e: overwrite the unit at byte offset location in mem_buf with val. */
 void memory_modify() {
-  printf("Not implemented yet\n");
+  char input[INPUT_LEN];
+  unsigned int location, val;
+
+  printf("Please enter <location> <val>\n");
+  if (read_line(input, sizeof(input)) == NULL)
+    return;
+  if (sscanf(input, "%x %x", &location, &val) != 2) {
+    fprintf(stderr, "Error: invalid input\n");
+    return;
+  }
+  if (debug_mode)
+    fprintf(stderr, "Debug: location=%#x, val=%#x\n", location, val);
+  if ((size_t)location + unit_size > MEM_BUF_SIZE) {
+    fprintf(stderr, "Error: location %#x out of range\n", location);
+    return;
+  }
+  memcpy(mem_buf + location, &val, unit_size);
 }
 
 void quit() {
