@@ -2,9 +2,9 @@
  * Authors: Ofek Hamdi, Tair Elbaz
  *
  * Menu-driven tool for inspecting and patching binary files.
- * Task 0b implements the menu framework plus Toggle Debug, Set File Name,
- * Set Unit Size and Quit. The remaining options are stubs that are filled
- * in during Task 1.
+ * Implements the menu framework and all operations: Toggle Debug, Set File
+ * Name, Set Unit Size, Load Into Memory, Toggle Display Mode, Memory Display,
+ * Save Into File, Memory Modify and Quit.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +53,8 @@ void set_file_name() {
   printf("Enter file name:\n");
   if (read_line(input, sizeof(input)) == NULL)
     return;
-  strcpy(file_name, input);   /* file name assumed <= 100 chars */
+  strncpy(file_name, input, FILE_NAME_LEN - 1);  /* bounded copy (name <= 100 chars) */
+  file_name[FILE_NAME_LEN - 1] = '\0';
   if (debug_mode)
     fprintf(stderr, "Debug: file name set to '%s'\n", file_name);
 }
@@ -147,6 +148,10 @@ void memory_display() {
     fprintf(stderr, "Error: invalid input\n");
     return;
   }
+  if (addr == 0 && (size_t)u * unit_size > MEM_BUF_SIZE) {
+    fprintf(stderr, "Error: length exceeds buffer capacity\n");
+    return;
+  }
 
   p = (addr == 0) ? mem_buf : (unsigned char*)(uintptr_t)addr;
   formats = display_mode ? dec_formats : hex_formats;
@@ -195,7 +200,7 @@ void save_into_file() {
 
   fseek(f, 0, SEEK_END);
   size = ftell(f);
-  if ((long)target > size) {
+  if (size < 0 || target > (unsigned long)size) {
     fprintf(stderr, "Error: target location %#x exceeds file size\n", target);
     fclose(f);
     return;
