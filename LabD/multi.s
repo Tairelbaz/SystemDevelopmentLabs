@@ -6,6 +6,8 @@ section .rodata
 section .data
     x_struct db 5
     x_num db 0xaa, 1, 2, 0x44, 0x4f
+    y_struct db 6
+    y_num db 0xaa, 1, 2, 3, 0x44, 0x4f
 
 section .bss
     input_line resb 512
@@ -14,6 +16,8 @@ section .text
     global main
     global print_multi
     global getmulti
+    global MaxMin
+    global add_multi
     extern printf
     extern fgets
     extern strcmp
@@ -43,7 +47,13 @@ main:
     mov esi, eax
     call getmulti
     mov edi, eax
+    jmp .print_operands_and_sum
 
+.default_input:
+    mov esi, x_struct
+    mov edi, y_struct
+
+.print_operands_and_sum:
     push esi
     call print_multi
     add esp, 4
@@ -51,10 +61,13 @@ main:
     push edi
     call print_multi
     add esp, 4
-    jmp .done
 
-.default_input:
-    push dword x_struct
+    push edi
+    push esi
+    call add_multi
+    add esp, 8
+
+    push eax
     call print_multi
     add esp, 4
 
@@ -78,6 +91,14 @@ print_multi:
     test ebx, ebx
     jz .print_newline
     dec ebx
+
+.trim_loop:
+    test ebx, ebx
+    jz .print_loop
+    cmp byte [esi + ebx + 1], 0
+    jne .print_loop
+    dec ebx
+    jmp .trim_loop
 
 .print_loop:
     movzx eax, byte [esi + ebx + 1]
@@ -184,6 +205,104 @@ getmulti:
     mov byte [eax + 1], 0
 
 .done:
+    pop edi
+    pop esi
+    pop ebx
+    pop ebp
+    ret
+
+; in: eax, ebx = struct pointers; out: eax = longer, ebx = other; clobbers ecx, edx
+MaxMin:
+    movzx ecx, byte [eax]
+    movzx edx, byte [ebx]
+    cmp ecx, edx
+    jae .done
+    xchg eax, ebx
+
+.done:
+    ret
+
+add_multi:
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+    sub esp, 32
+
+    mov eax, [ebp + 8]
+    mov ebx, [ebp + 12]
+    call MaxMin
+
+    mov [ebp - 16], eax
+    mov [ebp - 20], ebx
+
+    movzx ecx, byte [eax]
+    movzx edx, byte [ebx]
+    mov [ebp - 24], ecx
+    mov [ebp - 28], edx
+
+    mov eax, ecx
+    cmp eax, 255
+    je .result_size_ready
+    inc eax
+
+.result_size_ready:
+    mov [ebp - 32], eax
+    lea eax, [eax + 1]
+    push eax
+    call malloc
+    add esp, 4
+
+    mov [ebp - 36], eax
+    mov edx, [ebp - 32]
+    mov [eax], dl
+
+    mov dword [ebp - 40], 0
+    mov dword [ebp - 44], 0
+
+.add_loop:
+    mov ecx, [ebp - 44]
+    cmp ecx, [ebp - 24]
+    jge .after_add_loop
+
+    xor edx, edx
+    mov esi, [ebp - 16]
+    movzx eax, byte [esi + ecx + 1]
+    add edx, eax
+    add edx, [ebp - 40]
+
+    cmp ecx, [ebp - 28]
+    jge .store_sum_byte
+
+    mov esi, [ebp - 20]
+    movzx eax, byte [esi + ecx + 1]
+    add edx, eax
+
+.store_sum_byte:
+    mov eax, edx
+    shr eax, 8
+    mov [ebp - 40], eax
+
+    mov edi, [ebp - 36]
+    mov [edi + ecx + 1], dl
+
+    inc dword [ebp - 44]
+    jmp .add_loop
+
+.after_add_loop:
+    mov eax, [ebp - 32]
+    cmp eax, [ebp - 24]
+    jle .return_result
+
+    mov ecx, [ebp - 24]
+    mov edx, [ebp - 40]
+    mov edi, [ebp - 36]
+    mov [edi + ecx + 1], dl
+
+.return_result:
+    mov eax, [ebp - 36]
+    add esp, 32
     pop edi
     pop esi
     pop ebx
