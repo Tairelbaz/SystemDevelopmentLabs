@@ -2,12 +2,15 @@ section .rodata
     hex_format db "%02hhx", 0
     newline_format db 10, 0
     input_flag db "-I", 0
+    random_flag db "-R", 0
+    MASK dw 0x002D
 
 section .data
     x_struct db 5
     x_num db 0xaa, 1, 2, 0x44, 0x4f
     y_struct db 6
     y_num db 0xaa, 1, 2, 3, 0x44, 0x4f
+    STATE dw 0xACE1
 
 section .bss
     input_line resb 512
@@ -18,6 +21,8 @@ section .text
     global getmulti
     global MaxMin
     global add_multi
+    global rand_num
+    global PRmulti
     extern printf
     extern fgets
     extern strcmp
@@ -41,11 +46,27 @@ main:
     add esp, 8
 
     cmp eax, 0
-    jne .default_input
+    jne .check_random_input
 
     call getmulti
     mov esi, eax
     call getmulti
+    mov edi, eax
+    jmp .print_operands_and_sum
+
+.check_random_input:
+    mov eax, [ebp + 12]
+    push dword random_flag
+    push dword [eax + 4]
+    call strcmp
+    add esp, 8
+
+    cmp eax, 0
+    jne .default_input
+
+    call PRmulti
+    mov esi, eax
+    call PRmulti
     mov edi, eax
     jmp .print_operands_and_sum
 
@@ -303,6 +324,87 @@ add_multi:
 .return_result:
     mov eax, [ebp - 36]
     add esp, 32
+    pop edi
+    pop esi
+    pop ebx
+    pop ebp
+    ret
+
+; out: eax = next LFSR output bit (0 or 1); advances STATE; preserves ecx, edx
+rand_num:
+    push ecx
+    push edx
+
+    xor edx, edx
+    movzx eax, word [STATE]
+    shr eax, 1
+    movzx ecx, word [STATE]
+    and cx, word [MASK]       ; PF = parity of the tap bits (valid because MASK fits in the low byte)
+    jp .store_state           ; PF set = even parity -> feedback bit stays 0
+    or eax, 0x8000
+    inc edx                   ; odd parity -> feedback bit 1
+
+.store_state:
+    mov [STATE], ax
+    mov eax, edx
+
+    pop edx
+    pop ecx
+    ret
+
+rand_byte:
+    push ecx
+    push edx
+
+    mov ecx, 8
+    xor edx, edx
+
+.byte_loop:
+    call rand_num
+    shl dl, 1
+    or dl, al
+    dec ecx
+    jnz .byte_loop
+
+    movzx eax, dl
+    pop edx
+    pop ecx
+    ret
+
+PRmulti:
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+
+.length_loop:
+    call rand_byte
+    movzx ebx, al
+    test ebx, ebx
+    jz .length_loop
+
+    lea eax, [ebx + 1]
+    push eax
+    call malloc
+    add esp, 4
+
+    mov edi, eax
+    mov [edi], bl
+    lea esi, [edi + 1]
+
+.fill_loop:
+    test ebx, ebx
+    jz .done
+
+    call rand_byte
+    mov [esi], al
+    inc esi
+    dec ebx
+    jmp .fill_loop
+
+.done:
+    mov eax, edi
     pop edi
     pop esi
     pop ebx
