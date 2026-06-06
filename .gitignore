@@ -10,6 +10,9 @@ Lab*/**
 # LabB needs extensionless files (data files, patch targets, etc.)
 !LabB*/**
 
+# Lab4 needs extensionless files (data files, patch targets, etc.)
+!Lab4*/**
+
 # Build artifacts (placed AFTER the whitelist so they override it)
 *.o
 *.exe
