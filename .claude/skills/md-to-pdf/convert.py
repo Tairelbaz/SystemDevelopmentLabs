@@ -33,7 +33,9 @@ from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER, TA_JUSTIFY
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Preformatted,
     Table, TableStyle, PageBreak, HRFlowable, ListFlowable, ListItem,
+    Image as RLImage, KeepTogether,
 )
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
@@ -62,16 +64,29 @@ _RTL_RE = re.compile(r'[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]')
 # ---------------------------------------------------------------------------
 
 def _register_fonts():
-    """Register DejaVu fonts with reportlab."""
+    """Register DejaVu fonts with reportlab.
+
+    The oblique (italic) sans faces ship separately from fonts-dejavu-core and
+    are often absent. When missing, fall back to the upright weight so italic
+    markup renders (upright) rather than crashing the PDF build.
+    """
+    regular = f'{_FONT_DIR}/DejaVuSans.ttf'
+    bold = f'{_FONT_DIR}/DejaVuSans-Bold.ttf'
     fonts = {
-        'DejaVu':       f'{_FONT_DIR}/DejaVuSans.ttf',
-        'DejaVu-Bold':  f'{_FONT_DIR}/DejaVuSans-Bold.ttf',
+        'DejaVu':       regular,
+        'DejaVu-Bold':  bold,
         'DejaVu-Italic': f'{_FONT_DIR}/DejaVuSans-Oblique.ttf',
         'DejaVu-BoldItalic': f'{_FONT_DIR}/DejaVuSans-BoldOblique.ttf',
         'DejaVuMono':   f'{_FONT_DIR}/DejaVuSansMono.ttf',
         'DejaVuMono-Bold': f'{_FONT_DIR}/DejaVuSansMono-Bold.ttf',
     }
+    fallbacks = {
+        'DejaVu-Italic': regular,
+        'DejaVu-BoldItalic': bold,
+    }
     for name, path in fonts.items():
+        if not Path(path).exists() and name in fallbacks:
+            path = fallbacks[name]
         try:
             pdfmetrics.registerFont(TTFont(name, path))
         except Exception as e:
@@ -212,6 +227,17 @@ def _build_styles(base_size: int = 11, is_rtl: bool = False):
         textColor=HexColor('#374151'),
     )
 
+    styles['caption'] = ParagraphStyle(
+        'caption',
+        fontName=f'{font}-Italic',
+        fontSize=base_size - 1.5,
+        leading=(base_size - 1.5) * 1.4,
+        alignment=TA_CENTER,
+        spaceBefore=1.5 * mm,
+        spaceAfter=4 * mm,
+        textColor=HexColor('#6b7280'),
+    )
+
     return styles
 
 
@@ -280,7 +306,58 @@ def _inline_to_markup(tokens, use_bidi: bool = False) -> str:
     return ''.join(parts)
 
 
-def _ast_to_flowables(ast_nodes, styles, use_bidi: bool = False, page_width: float = 170 * mm):
+def _image_token_src_alt(tok, use_bidi: bool = False):
+    """Extract (src, alt_markup) from a mistune image token.
+
+    mistune 3 stores the url under attrs.url and the alt text as inline
+    children. `alt_markup` is returned render-ready (already XML-escaped, with
+    inline code/emphasis preserved) so it can be dropped straight into a caption.
+    """
+    attrs = tok.get('attrs', {})
+    if isinstance(attrs, dict):
+        src = attrs.get('url', '') or attrs.get('src', '')
+    else:
+        src = ''
+    src = src or tok.get('src', '') or tok.get('link', '')
+    if tok.get('children'):
+        alt = _inline_to_markup(tok.get('children', []), use_bidi)
+    else:
+        alt = _escape_xml(tok.get('alt', ''))
+    return src, alt
+
+
+def _image_flowable(src, alt, base_dir, page_width, styles):
+    """Embed a local image scaled to fit the page width, with an optional caption.
+
+    Falls back to a `[Image: ...]` text placeholder for remote URLs or files that
+    cannot be located or read.
+    """
+    is_remote = src.startswith('http://') or src.startswith('https://')
+    path = src
+    if base_dir and not is_remote and not Path(path).is_absolute():
+        path = str((Path(base_dir) / path).resolve())
+
+    if not is_remote and Path(path).exists():
+        try:
+            iw, ih = ImageReader(path).getSize()
+            if iw and ih:
+                max_w = page_width
+                max_h = 200 * mm  # keep an image within a single page's body
+                scale = min(1.0, max_w / float(iw), max_h / float(ih))
+                img = RLImage(path, width=iw * scale, height=ih * scale)
+                img.hAlign = 'CENTER'
+                group = [img]
+                if alt and alt.strip():
+                    group.append(Paragraph(alt, styles['caption']))
+                return [KeepTogether(group)]
+        except Exception as e:
+            print(f"WARNING: could not embed image {path}: {e}", file=sys.stderr)
+
+    return [Paragraph(f'[Image: {alt or _escape_xml(src)}]', styles['body'])]
+
+
+def _ast_to_flowables(ast_nodes, styles, use_bidi: bool = False, page_width: float = 170 * mm,
+                      base_dir=None):
     """Walk the mistune AST and produce a list of reportlab Flowables."""
     flowables = []
 
@@ -296,9 +373,29 @@ def _ast_to_flowables(ast_nodes, styles, use_bidi: bool = False, page_width: flo
 
         # --- Paragraphs ---
         elif ntype == 'paragraph':
-            text = _inline_to_markup(node.get('children', []), use_bidi)
-            if text.strip():
-                flowables.append(Paragraph(text, styles['body']))
+            children = node.get('children', [])
+            if any(c.get('type') == 'image' for c in children):
+                # A paragraph carrying image(s): emit images as real flowables,
+                # keeping any surrounding inline text in document order.
+                buf = []
+                for c in children:
+                    if c.get('type') == 'image':
+                        txt = _inline_to_markup(buf, use_bidi)
+                        if txt.strip():
+                            flowables.append(Paragraph(txt, styles['body']))
+                        buf = []
+                        src, alt = _image_token_src_alt(c, use_bidi)
+                        flowables.extend(
+                            _image_flowable(src, alt, base_dir, page_width, styles))
+                    else:
+                        buf.append(c)
+                txt = _inline_to_markup(buf, use_bidi)
+                if txt.strip():
+                    flowables.append(Paragraph(txt, styles['body']))
+            else:
+                text = _inline_to_markup(children, use_bidi)
+                if text.strip():
+                    flowables.append(Paragraph(text, styles['body']))
 
         # --- Code blocks (mistune 3 uses 'block_code') ---
         elif ntype in ('code_block', 'block_code'):
@@ -312,7 +409,7 @@ def _ast_to_flowables(ast_nodes, styles, use_bidi: bool = False, page_width: flo
         # --- Block quote ---
         elif ntype == 'block_quote':
             children = node.get('children', [])
-            inner = _ast_to_flowables(children, styles, use_bidi, page_width)
+            inner = _ast_to_flowables(children, styles, use_bidi, page_width, base_dir)
             # Wrap in blockquote style — just re-style the inner paragraphs
             for f in inner:
                 flowables.append(f)
@@ -331,7 +428,7 @@ def _ast_to_flowables(ast_nodes, styles, use_bidi: bool = False, page_width: flo
                         parts.append(_inline_to_markup(child.get('children', []), use_bidi))
                     elif child['type'] == 'list':
                         # Nested list — recurse
-                        nested = _ast_to_flowables([child], styles, use_bidi, page_width)
+                        nested = _ast_to_flowables([child], styles, use_bidi, page_width, base_dir)
                         for nf in nested:
                             list_items.append(ListItem(nf, leftIndent=10 * mm))
                         continue
@@ -434,7 +531,7 @@ def _ast_to_flowables(ast_nodes, styles, use_bidi: bool = False, page_width: flo
             # Try to render children if present
             children = node.get('children', [])
             if children:
-                flowables.extend(_ast_to_flowables(children, styles, use_bidi, page_width))
+                flowables.extend(_ast_to_flowables(children, styles, use_bidi, page_width, base_dir))
             else:
                 raw = node.get('raw', '')
                 if raw.strip():
@@ -540,7 +637,8 @@ def convert_md_to_pdf(
                 break
 
     # Convert AST to flowables
-    flowables = _ast_to_flowables(ast, styles, use_bidi=is_rtl, page_width=content_width)
+    flowables = _ast_to_flowables(ast, styles, use_bidi=is_rtl, page_width=content_width,
+                                  base_dir=str(md_path.parent))
 
     if not flowables:
         print("WARNING: No content generated from markdown.", file=sys.stderr)
