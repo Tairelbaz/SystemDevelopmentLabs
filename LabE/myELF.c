@@ -128,9 +128,10 @@ static int sym_is_defined(Elf32_Sym *s) {
   return s->st_shndx != SHN_UNDEF;
 }
 
-/* find a named symbol in file fi's symbol table (skips the dummy symbol 0
- * and unnamed symbols). returns a pointer into the mapping, or NULL. */
-static Elf32_Sym *find_symbol(int fi, const char *name) {
+/* find a named non-local symbol in file fi's symbol table (skips the dummy
+ * symbol 0 and unnamed symbols). Local symbols are not visible to other ELF
+ * files, so they must not satisfy cross-file undefined references. */
+static Elf32_Sym *find_visible_symbol(int fi, const char *name) {
   Elf32_Shdr *sh = sec_table(fi);
   int sti = find_section_by_type(fi, SHT_SYMTAB);
   Elf32_Shdr *symtab;
@@ -147,7 +148,8 @@ static Elf32_Sym *find_symbol(int fi, const char *name) {
 
   for (i = 1; i < nsyms; i++) {
     const char *n = strbase + syms[i].st_name;
-    if (n[0] != '\0' && strcmp(n, name) == 0)
+    if (ELF32_ST_BIND(syms[i].st_info) != STB_LOCAL &&
+        n[0] != '\0' && strcmp(n, name) == 0)
       return &syms[i];
   }
   return NULL;
@@ -218,7 +220,7 @@ static Elf32_Sym *build_resolved_symtab(Elf32_Shdr *symtab0, size_t *out_size) {
 
     if (dst[i].st_shndx != SHN_UNDEF || name[0] == '\0')
       continue;                                  /* only resolve undefined  */
-    f2 = find_symbol(1, name);
+    f2 = find_visible_symbol(1, name);
     if (f2 == NULL || !sym_is_defined(f2))
       continue;                                  /* not defined in file 1   */
 
@@ -295,6 +297,13 @@ void examine_elf(void) {
   ehdr = (Elf32_Ehdr *)start;
   if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG) != 0) {
     fprintf(stderr, "Error: %s is not an ELF file (bad magic)\n", path);
+    munmap(start, st.st_size);
+    close(f);
+    return;
+  }
+
+  if (ehdr->e_ident[EI_CLASS] != ELFCLASS32) {
+    fprintf(stderr, "Error: %s is not a 32-bit ELF file\n", path);
     munmap(start, st.st_size);
     close(f);
     return;
@@ -485,7 +494,7 @@ static void check_one_direction(int a, int b) {
     if (ELF32_ST_BIND(s->st_info) == STB_LOCAL || name[0] == '\0')
       continue;
 
-    other = find_symbol(b, name);
+    other = find_visible_symbol(b, name);
 
     if (!sym_is_defined(s)) {                    /* undefined in file a */
       if (other == NULL || !sym_is_defined(other))
