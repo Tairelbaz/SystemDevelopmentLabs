@@ -47,6 +47,5 @@
       "PowerShell(wsl bash -c \"cd '/mnt/c/Users/offec/Downloads/SystemDevelopmentLabs/LabB' && printf 'L\\\\nsignatures-L\\\\nS\\\\ninfected\\\\nD\\\\nQ\\\\n' | ./AntiVirus 2>&1 | grep -E 'Starting|No'\")"
     ]
   },
-  "model": "claude-opus-4-6[1m]",
   "alwaysThinkingEnabled": true
 }
